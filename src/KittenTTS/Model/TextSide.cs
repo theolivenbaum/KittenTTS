@@ -122,35 +122,42 @@ internal sealed class Albert : IDisposable
     private Act Layer(Act h, Parallelism par)
     {
         int T = h.T, D = _hidden, hd = D / _heads;
+        Profiler.Mark("bert_other");
         var q = _q.Forward(h, par);
         var k = _k.Forward(h, par);
         var v = _v.Forward(h, par);
-        var ctx = new Act(T, D);
+        Profiler.Mark("bert_qkv");
+        var ctx = Act.Uninit(T, D);
         float scale = 1f / MathF.Sqrt(hd);
+        // per head: scores = Q_h K_hᵀ, softmax, ctx_h = P V_h, as GEMMs on packed K_h / V_h (single-threaded inside,
+        // the heads run in parallel)
         par.For(_heads, head =>
         {
-            var scores = new float[T];
-            var acc = new float[hd];
             int o = head * hd;
-            for (int i = 0; i < T; i++)
+            var scores = GC.AllocateUninitializedArray<float>(T * T);
+            unsafe
             {
-                var qi = q.Data.AsSpan(i * D + o, hd);
-                for (int j = 0; j < T; j++) scores[j] = TensorPrimitives.Dot(qi, k.Data.AsSpan(j * D + o, hd)) * scale;
-                float max = TensorPrimitives.Max(scores);
-                TensorPrimitives.Subtract(scores, max, scores);
-                TensorPrimitives.Exp(scores, scores);
-                float inv = 1f / TensorPrimitives.Sum(scores);
-                Array.Clear(acc);
-                for (int j = 0; j < T; j++) TensorPrimitives.MultiplyAdd(v.Data.AsSpan(j * D + o, hd), scores[j] * inv, acc, acc);
-                acc.CopyTo(ctx.Data.AsSpan(i * D + o, hd));
+                fixed (float* qp = q.Data, kp = k.Data, vp = v.Data, sp = scores, cp = ctx.Data)
+                {
+                    using var kt = PackedMatrix.FromLinear(kp + o, T, hd, D, scale);   // B = (scale · K_h)ᵀ
+                    Gemm.Multiply(qp + o, D, T, kt, sp, T, Parallelism.Single);
+                    for (int i = 0; i < T; i++) Ops.SoftmaxInPlace(sp + (long)i * T, T);
+                    using var vm = PackedMatrix.FromKN(vp + o, T, hd, D);
+                    Gemm.Multiply(sp, T, T, vm, cp + o, D, Parallelism.Single);
+                }
             }
         });
+        Profiler.Mark("bert_attention");
         var proj = _dense.Forward(ctx, par);
         F.AddInPlace(proj, h);
         var att = F.LayerNorm(proj, _attLnW, _attLnB, _lnEps);
+        Profiler.Mark("bert_dense_ln");
         var f = _ffn.Forward(att, par);
+        Profiler.Mark("bert_ffn");
         GeluNew(f.Data);
+        Profiler.Mark("bert_gelu");
         var fo = _ffnOut.Forward(f, par);
+        Profiler.Mark("bert_ffn");
         F.AddInPlace(fo, att);
         return F.LayerNorm(fo, _fullLnW, _fullLnB, _lnEps);
     }
@@ -159,10 +166,20 @@ internal sealed class Albert : IDisposable
     private static void GeluNew(float[] x)
     {
         const float c = 0.7978845608028654f;
-        for (long i = 0; i < x.LongLength; i++)
+        const int block = 4096;
+        var t = new float[block];
+        for (int i0 = 0; i0 < x.Length; i0 += block)
         {
-            float v = x[i];
-            x[i] = 0.5f * v * (1f + MathF.Tanh(c * (v + 0.044715f * v * v * v)));
+            var v = x.AsSpan(i0, Math.Min(block, x.Length - i0));
+            var u = t.AsSpan(0, v.Length);
+            TensorPrimitives.Multiply(v, v, u);                     // v²
+            TensorPrimitives.Multiply(u, v, u);                     // v³
+            TensorPrimitives.MultiplyAdd(u, 0.044715f, v, u);       // v + 0.044715 v³
+            TensorPrimitives.Multiply(u, c, u);
+            TensorPrimitives.Tanh(u, u);
+            TensorPrimitives.Add(u, 1f, u);
+            TensorPrimitives.Multiply(u, v, u);
+            TensorPrimitives.Multiply(u, 0.5f, v);
         }
     }
 

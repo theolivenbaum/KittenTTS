@@ -30,7 +30,7 @@ internal sealed unsafe class Linear : IDisposable
     public Act Forward(Act x, Parallelism par, Activation act = Activation.None)
     {
         if (x.C != In) throw new ArgumentException($"Linear expects {In} features, got {x.C}.");
-        var y = new Act(x.T, Out);
+        var y = Act.Uninit(x.T, Out);
         fixed (float* a = x.Data, c = y.Data, b = _bias)
             Gemm.Multiply(a, In, x.T, _w, c, Out, par, b, accumulate: false, act);
         return y;
@@ -67,15 +67,14 @@ internal sealed class VectorLinear(float[] w, float[]? bias, int outFeatures, in
 }
 
 /// <summary>
-/// <c>nn.Conv1d</c> (groups = 1) on the packed GEMM, with no im2col buffer: the input is copied once into a zero-padded
-/// buffer, and for dilation 1 the GEMM's A operand is that buffer with overlapping rows (row <c>t</c> starts at padded
-/// step <c>t · stride</c> and spans <c>K · Cin</c> values, exactly the receptive field in tap-major order). Dilated
-/// convolutions run one accumulating GEMM per tap instead.
+/// <c>nn.Conv1d</c> (groups = 1) on the packed GEMM: the input is copied once into a zero-padded buffer, and for
+/// dilation 1 the GEMM's A operand is that buffer with overlapping rows (row <c>t</c> starts at padded step
+/// <c>t · stride</c> and spans <c>K · Cin</c> values, exactly the receptive field in tap-major order), so no im2col
+/// buffer is needed. Dilated convolutions gather their taps into an im2col buffer one block of rows at a time.
 /// </summary>
 internal sealed unsafe class Conv1d : IDisposable
 {
-    private readonly PackedMatrix? _full;
-    private readonly PackedMatrix[]? _taps;
+    private readonly PackedMatrix _full;
     private readonly float[]? _bias;
 
     public Conv1d(float[] w, float[]? bias, int cout, int cin, int k, int stride = 1, int padding = 0, int dilation = 1)
@@ -84,26 +83,12 @@ internal sealed unsafe class Conv1d : IDisposable
         if (dilation > 1 && stride != 1) throw new NotSupportedException("Dilated strided convolutions are not supported.");
         Cin = cin; Cout = cout; K = k; Stride = stride; Padding = padding; Dilation = dilation;
         _bias = bias;
-        if (dilation == 1)
-        {
-            // [Cout, Cin, K] -> [Cout, K * Cin] (tap-major rows)
-            var r = new float[w.Length];
-            for (int o = 0; o < cout; o++)
-                for (int i = 0; i < cin; i++)
-                    for (int t = 0; t < k; t++) r[((long)o * k + t) * cin + i] = w[((long)o * cin + i) * k + t];
-            fixed (float* p = r) _full = PackedMatrix.FromLinear(p, cout, k * cin, hugePages: false);
-        }
-        else
-        {
-            _taps = new PackedMatrix[k];
-            var tap = new float[(long)cout * cin];
-            for (int t = 0; t < k; t++)
-            {
-                for (int o = 0; o < cout; o++)
-                    for (int i = 0; i < cin; i++) tap[(long)o * cin + i] = w[((long)o * cin + i) * k + t];
-                fixed (float* p = tap) _taps[t] = PackedMatrix.FromLinear(p, cout, cin, hugePages: false);
-            }
-        }
+        // [Cout, Cin, K] -> [Cout, K * Cin] (tap-major rows)
+        var r = new float[w.Length];
+        for (int o = 0; o < cout; o++)
+            for (int i = 0; i < cin; i++)
+                for (int t = 0; t < k; t++) r[((long)o * k + t) * cin + i] = w[((long)o * cin + i) * k + t];
+        fixed (float* p = r) _full = PackedMatrix.FromLinear(p, cout, k * cin, hugePages: false);
     }
 
     public static Conv1d Load(WeightReader r, string module, int stride = 1, int padding = 0, int dilation = 1)
@@ -134,27 +119,33 @@ internal sealed unsafe class Conv1d : IDisposable
             xp = new float[(long)tp * Cin];
             x.Data.AsSpan().CopyTo(xp.AsSpan(Padding * Cin));
         }
-        var y = new Act(tout, Cout);
-        fixed (float* a = xp, c = y.Data, b = _bias)
+        var y = Act.Uninit(tout, Cout);
+        if (Dilation == 1)
         {
-            if (_full != null)
-            {
+            fixed (float* a = xp, c = y.Data, b = _bias)
                 Gemm.Multiply(a, (long)Stride * Cin, tout, _full, c, Cout, par, b);
-            }
-            else
+            return y;
+        }
+        // Dilated: gather the taps of a block of rows into one buffer (im2col by blocks) and run one GEMM per block.
+        const int rowsPerBlock = 1024;
+        int kc = K * Cin;
+        var buf = GC.AllocateUninitializedArray<float>(Math.Min(rowsPerBlock, tout) * kc);
+        fixed (float* a = xp, c = y.Data, b = _bias, bp = buf)
+        {
+            for (int r0 = 0; r0 < tout; r0 += rowsPerBlock)
             {
-                for (int t = 0; t < K; t++)
-                    Gemm.Multiply(a + (long)t * Dilation * Cin, Cin, tout, _taps![t], c, Cout, par, t == 0 ? b : null, accumulate: t > 0);
+                int rows = Math.Min(rowsPerBlock, tout - r0);
+                for (int r = 0; r < rows; r++)
+                    for (int t = 0; t < K; t++)
+                        Buffer.MemoryCopy(a + ((long)(r0 + r) + (long)t * Dilation) * Cin, bp + (long)r * kc + (long)t * Cin,
+                                          Cin * sizeof(float), Cin * sizeof(float));
+                Gemm.Multiply(bp, kc, rows, _full, c + (long)r0 * Cout, Cout, par, b);
             }
         }
         return y;
     }
 
-    public void Dispose()
-    {
-        _full?.Dispose();
-        if (_taps != null) foreach (var t in _taps) t.Dispose();
-    }
+    public void Dispose() => _full.Dispose();
 }
 
 /// <summary><c>nn.ConvTranspose1d</c> (groups = 1): one GEMM computes every tap's contribution of every input step
@@ -196,7 +187,7 @@ internal sealed unsafe class ConvTranspose1d : IDisposable
         if (x.C != Cin) throw new ArgumentException($"ConvTranspose1d expects {Cin} channels, got {x.C}.");
         int tout = (x.T - 1) * Stride - 2 * Padding + K + OutputPadding;
         int n = K * Cout;
-        var z = new float[(long)x.T * n];
+        var z = GC.AllocateUninitializedArray<float>(checked(x.T * n));
         fixed (float* a = x.Data, c = z) Gemm.Multiply(a, Cin, x.T, _w, c, n, par);
         var y = new Act(tout, Cout);
         var yd = y.Data;

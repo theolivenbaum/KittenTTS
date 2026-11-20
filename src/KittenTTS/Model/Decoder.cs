@@ -141,7 +141,7 @@ internal sealed class Generator : IDisposable
 
     public float[] Forward(Act x, ReadOnlySpan<float> s, float[] f0Curve, SynthesisNoise noise, Parallelism par)
     {
-        var har = HarmonicSource(f0Curve, noise);
+        var har = HarmonicSource(f0Curve, noise, par);
         DebugDump.Write("gen_har", har);
         int n = _ups.Length;
         for (int i = 0; i < n; i++)
@@ -190,7 +190,7 @@ internal sealed class Generator : IDisposable
     /// frequency, linear downsampling by the upsample scale, cumulative phase, linear upsampling back. (Its random
     /// initial phase lands on sample 0, which the downsampling never reads, so it has no effect and is omitted.)
     /// </summary>
-    private Act HarmonicSource(float[] f0Curve, SynthesisNoise noise)
+    private Act HarmonicSource(float[] f0Curve, SynthesisNoise noise, Parallelism par)
     {
         int frames = f0Curve.Length;                    // F0 at twice the decoder frame rate
         int scale = _upsampleScale;
@@ -214,8 +214,9 @@ internal sealed class Generator : IDisposable
         float inv = (float)(1.0 / scale);
         var source = new float[len];
         var eps = noise.Normal(len * Harmonics);
-        var sines = new float[Harmonics];
-        for (int i = 0; i < len; i++)
+        par.ForRange(len, 4096, (s0, s1) =>
+        {
+        for (int i = s0; i < s1; i++)
         {
             float src = (i + 0.5f) * inv - 0.5f;
             if (src < 0) src = 0;
@@ -241,6 +242,7 @@ internal sealed class Generator : IDisposable
             }
             source[i] = MathF.Tanh(acc + _lLinearB);
         }
+        });
         DebugDump.Write("gen_source", source, [source.Length]);
         var (mag, ph, stftFrames) = _stft.Forward(source);
         int bins = _nFft / 2 + 1;

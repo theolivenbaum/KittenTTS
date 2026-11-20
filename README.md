@@ -177,9 +177,18 @@ rules instead (see `PosTagger`).
 
 ### Performance
 
-4 vCPU (AVX-512), int8 weights, `kitten-tts bench` (median of 5): nano **5.8×** realtime, mini **1.8×** realtime. The
-generator's convolutions at the audio-rate stages dominate; `KITTENTTS_PROFILE=1` prints a per-stage breakdown.
-Optimizing them (fused AdaIN / snake epilogues, the iSTFT, the LSTM recurrences) is on the roadmap.
+Same 4-vCPU machine (AVX-512), int8 weights, 4 threads, one ~6.5 s sentence, median of 5
+(`kitten-tts bench --no-noise` against ONNX Runtime 1.32 running the same int8 graph in Python):
+
+| | C# (this port) | ONNX Runtime | |
+|---|---|---|---|
+| nano | 647 ms, **10.1×** realtime | 522 ms, 12.8× realtime | 1.24× slower |
+| mini | 2025 ms, **3.0×** realtime | 1558 ms, 4.0× realtime | 1.30× slower |
+
+The iSTFTNet generator's convolutions at the audio-rate stages take 75–88% of the time (`KITTENTTS_PROFILE=1` prints a
+per-stage breakdown). AdaIN and snake are fused into one parallel pass, dilated convolutions run as blocked im2col
+GEMMs, and attention as per-head GEMMs; closing the remaining gap (fusing AdaIN into the conv epilogues, a faster
+iSTFT and LSTM recurrence) is on the roadmap.
 
 ## Roadmap
 

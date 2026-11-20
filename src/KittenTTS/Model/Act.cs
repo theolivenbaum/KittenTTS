@@ -11,6 +11,9 @@ internal sealed class Act
         Data = new float[(long)t * c];
     }
 
+    /// <summary>An activation whose every element the caller overwrites (skips zeroing the buffer).</summary>
+    public static Act Uninit(int t, int c) => new(t, c, GC.AllocateUninitializedArray<float>(checked(t * c)));
+
     public Act(int t, int c, float[] data)
     {
         if (data.LongLength != (long)t * c) throw new ArgumentException("Data length does not match the shape.");
@@ -41,7 +44,7 @@ internal sealed class Act
             if (p.T != t) throw new ArgumentException($"Cannot concatenate activations of {p.T} and {t} steps.");
             c += p.C;
         }
-        var r = new Act(t, c);
+        var r = Uninit(t, c);
         for (int i = 0; i < t; i++)
         {
             int o = 0;

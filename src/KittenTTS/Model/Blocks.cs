@@ -21,7 +21,8 @@ internal sealed class AdaIn1d
     /// <summary>γ and β for a style vector (constant over the utterance, computed once per call).</summary>
     public float[] Style(ReadOnlySpan<float> s) => _fc.Forward(s);
 
-    public Act Forward(Act x, float[] gammaBeta) => F.AdaIn(x, gammaBeta, _normWeight, _normBias);
+    public Act Forward(Act x, float[] gammaBeta, Parallelism par, float[]? snakeAlpha = null) =>
+        F.AdaIn(x, gammaBeta, _normWeight, _normBias, par, snakeAlpha);
 }
 
 /// <summary>
@@ -55,11 +56,11 @@ internal sealed class AdainResBlk1d : IDisposable
 
     public Act Forward(Act x, ReadOnlySpan<float> s, Parallelism par)
     {
-        var h = _norm1.Forward(x, _norm1.Style(s));
+        var h = _norm1.Forward(x, _norm1.Style(s), par);
         F.LeakyRelu(h, 0.2f, inPlace: true);
         if (_pool != null) h = _pool.Forward(h);
         h = _conv1.Forward(h, par);
-        h = _norm2.Forward(h, _norm2.Style(s));
+        h = _norm2.Forward(h, _norm2.Style(s), par);
         F.LeakyRelu(h, 0.2f, inPlace: true);
         h = _conv2.Forward(h, par);
 
@@ -106,11 +107,10 @@ internal sealed class AdaInResBlock1 : IDisposable
     {
         for (int j = 0; j < 3; j++)
         {
-            var xt = _adain1[j].Forward(x, _adain1[j].Style(s));
-            xt = F.Snake(xt, _alpha1[j]);
+            // AdaIN and snake fused into one pass
+            var xt = _adain1[j].Forward(x, _adain1[j].Style(s), par, _alpha1[j]);
             xt = _convs1[j].Forward(xt, par);
-            xt = _adain2[j].Forward(xt, _adain2[j].Style(s));
-            xt = F.Snake(xt, _alpha2[j]);
+            xt = _adain2[j].Forward(xt, _adain2[j].Style(s), par, _alpha2[j]);
             xt = _convs2[j].Forward(xt, par);
             F.AddInPlace(xt, x);
             x = xt;
