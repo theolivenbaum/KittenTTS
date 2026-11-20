@@ -62,8 +62,9 @@ public sealed class KittenTts : IDisposable
         new(ModelRepository.Open(repositoryDirectory), options ?? new KittenTtsOptions());
 
     /// <summary>
-    /// Loads a released model for the given languages (default: the model's default language, English): from an
-    /// installed KittenTTSSharp.Models.* package, the download cache, or Hugging Face (see <see cref="KittenModels"/>).
+    /// Loads a released model for the given languages: from an installed KittenTTSSharp.Models.* package, the download
+    /// cache, or Hugging Face (see <see cref="KittenModels"/>). Without languages: the languages of the installed
+    /// packages, else the model's default language (English).
     /// </summary>
     public static async Task<KittenTts> LoadAsync(KittenModel model, IReadOnlyCollection<string>? languages = null, KittenTtsOptions? options = null,
                                                   string? cacheDirectory = null, Action<DownloadProgress>? progress = null,

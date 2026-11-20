@@ -46,16 +46,10 @@ public sealed unsafe class OnnxWeights : ITensorSource
         "decoder.generator.m_source.l_linear",
     ];
 
-    /// <summary>The bidirectional LSTMs, in execution order.</summary>
-    public static readonly string[] LstmModules =
-    [
-        "text_encoder.lstm",
-        "predictor.text_encoder.lstms.0",
-        "predictor.text_encoder.lstms.2",
-        "predictor.text_encoder.lstms.4",
-        "predictor.lstm",
-        "predictor.shared",
-    ];
+    /// <summary>The bidirectional LSTMs in execution order, for a duration encoder of <paramref name="layers"/> layers
+    /// (3 in nano / mini, 2 in pico).</summary>
+    public static string[] LstmModules(int layers) =>
+        ["text_encoder.lstm", .. Enumerable.Range(0, layers).Select(i => $"predictor.text_encoder.lstms.{2 * i}"), "predictor.lstm", "predictor.shared"];
 
     private OnnxWeights(string path)
     {
@@ -160,12 +154,13 @@ public sealed unsafe class OnnxWeights : ITensorSource
 
         // 3. LSTMs in execution order.
         var lstms = nodes.Where(n => n.OpType == "LSTM").ToList();
-        if (lstms.Count != LstmModules.Length)
-            throw new InvalidDataException($"{path}: found {lstms.Count} LSTM nodes, expected {LstmModules.Length}.");
+        if (lstms.Count < 4)
+            throw new InvalidDataException($"{path}: found {lstms.Count} LSTM nodes, expected the text encoder's, the duration encoder's and two in the predictor.");
+        var lstmModules = LstmModules(lstms.Count - 3);
         for (int i = 0; i < lstms.Count; i++)
         {
             var n = lstms[i];
-            string p = LstmModules[i] + ".";
+            string p = lstmModules[i] + ".";
             string W = n.Inputs[1], R = n.Inputs[2];
             string? B = n.Inputs.Length > 3 && n.Inputs[3].Length > 0 ? n.Inputs[3] : null;
             for (int dir = 0; dir < 2; dir++)

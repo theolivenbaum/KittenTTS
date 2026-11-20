@@ -7,7 +7,7 @@ obj/
 *.swp
 TestResults/
 packages/
-/models/*/files/
+/models/files/
 .venv*/
 __pycache__/
 *.download

@@ -1,0 +1,11 @@
+<Project>
+  <!-- KittenTTSSharp.Models.*: copy the model files to <output>/kittentts/ (build and publish), where
+       KittenTts.LoadAsync looks before downloading. -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\kittentts\**\*"
+          Link="kittentts\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+</Project>

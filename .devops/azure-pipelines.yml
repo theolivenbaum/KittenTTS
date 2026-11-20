@@ -1,0 +1,126 @@
+# Builds, tests and publishes the KittenTTSSharp NuGet package (src/KittenTTS, pure C# KittenTTS 2 nano / pico / mini
+# text-to-speech) with a CalVer version (yy.M.<buildId>), and on request the model weight packages
+# KittenTTSSharp.Models.* (models/KittenTTSSharp.Models.csproj, one per model / language, depending on the library of
+# the same build). The package id is KittenTTSSharp (like ParakeetSharp) so it is not mistaken for an official KittenML
+# package; the library's namespace is KittenTTS.
+
+parameters:
+- name: publishModelPackages
+  displayName: 'Also pack and push the 17 model weight packages (KittenTTSSharp.Models.*, ~330 MB)'
+  type: boolean
+  default: false
+
+variables:
+  solution: './KittenTTS.slnx'
+  project: './src/KittenTTS/KittenTTS.csproj'
+  modelProject: './models/KittenTTSSharp.Models.csproj'
+  buildConfiguration: 'Release'
+  targetVersion: yy.M.$(build.buildId)
+  packageOutput: '$(Build.ArtifactStagingDirectory)/packages'
+  modelPackageOutput: '$(Build.ArtifactStagingDirectory)/model-packages'
+  # Azure DevOps service connection (NuGet, external feed) used to push the packages.
+  nugetServiceConnection: 'nuget-curiosity-org'
+
+pool:
+  vmImage: 'windows-latest'
+
+trigger:
+- master
+
+steps:
+- checkout: self
+  fetchDepth: 10
+
+- task: PowerShell@2
+  displayName: 'Create CalVer version'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $dottedDate = (Get-Date).ToString("yy.M")
+      $modBuildID = [int]$env:BUILD_BUILDID % 65536  # must fit a version component
+      $newTargetVersion = "$dottedDate.$modBuildID"
+      Write-Host "##vso[task.setvariable variable=targetVersion;]$newTargetVersion"
+      Write-Host "Updated targetVersion to '$newTargetVersion'"
+
+- task: UseDotNet@2
+  displayName: 'Use .NET 11.0 SDK'
+  inputs:
+    packageType: sdk
+    version: 11.x
+    includePreviewVersions: false
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- task: DotNetCoreCLI@2
+  displayName: 'restore'
+  inputs:
+    command: 'restore'
+    projects: '$(solution)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'build'
+  inputs:
+    command: 'build'
+    projects: '$(solution)'
+    arguments: '-c $(buildConfiguration) --no-restore /p:Version=$(targetVersion)'
+
+# Kernel, front-end and normalization tests. The model parity tests (PyTorch / ONNX Runtime references) skip themselves
+# without KITTENTTS_MODEL_DIR / KITTENTTS_REFERENCE_DIR, and the espeak string tests without the reference espeak-ng
+# build; see README, 'Validation'.
+- task: DotNetCoreCLI@2
+  displayName: 'test'
+  inputs:
+    command: 'test'
+    projects: 'tests/KittenTTS.Tests/KittenTTS.Tests.csproj'
+    arguments: '-c $(buildConfiguration) --no-build'
+
+- task: DotNetCoreCLI@2
+  displayName: 'pack KittenTTSSharp'
+  inputs:
+    command: 'custom'
+    custom: 'pack'
+    projects: '$(project)'
+    arguments: '-c $(buildConfiguration) --no-build /p:Version=$(targetVersion) -o $(packageOutput)'
+
+# Model packages: each pack downloads its files from the Hugging Face revision pinned in the project.
+- task: PowerShell@2
+  displayName: 'pack KittenTTSSharp.Models.*'
+  condition: and(succeeded(), eq('${{ parameters.publishModelPackages }}', 'true'))
+  inputs:
+    targetType: 'inline'
+    script: |
+      $models = @(@{ Family = 'mini'; Language = '' })
+      foreach ($family in 'nano', 'pico') {
+        foreach ($language in 'en', 'de', 'es', 'it', 'pt', 'ru', 'hi', 'fr') {
+          $models += @{ Family = $family; Language = $language }
+        }
+      }
+      foreach ($m in $models) {
+        Write-Host "Packing $($m.Family) $($m.Language)"
+        dotnet pack "$(modelProject)" -c $(buildConfiguration) "-p:ModelFamily=$($m.Family)" "-p:ModelLanguage=$($m.Language)" "-p:Version=$(targetVersion)" -o "$(modelPackageOutput)"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      }
+
+- task: PublishBuildArtifacts@1
+  displayName: 'publish package as build artifact'
+  inputs:
+    PathtoPublish: '$(packageOutput)'
+    ArtifactName: 'packages'
+
+- task: NuGetCommand@2
+  displayName: 'push nuget package'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  inputs:
+    command: 'push'
+    packagesToPush: '$(packageOutput)/*.nupkg'
+    nuGetFeedType: 'external'
+    publishFeedCredentials: '$(nugetServiceConnection)'
+
+# Pushed after the library, which they depend on.
+- task: NuGetCommand@2
+  displayName: 'push model packages'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq('${{ parameters.publishModelPackages }}', 'true'))
+  inputs:
+    command: 'push'
+    packagesToPush: '$(modelPackageOutput)/*.nupkg'
+    nuGetFeedType: 'external'
+    publishFeedCredentials: '$(nugetServiceConnection)'

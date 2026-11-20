@@ -64,7 +64,16 @@ public static class KittenModels
                                                       CancellationToken cancellationToken = default)
     {
         string package = PackageDirectory(model);
-        if (File.Exists(Path.Combine(package, "config.json")) && HasAll(package, languages, weights)) return package;
+        if (File.Exists(Path.Combine(package, "config.json")))
+        {
+            // no languages asked for: whatever the installed packages hold
+            if (languages is not { Count: > 0 })
+            {
+                var installed = InstalledLanguages(package, weights);
+                if (installed.Count > 0) return package;
+            }
+            else if (HasAll(package, languages, weights)) return package;
+        }
 
         string dir = Path.Combine(cacheDirectory ?? CacheDirectory, DirectoryName(model));
         foreach (var f in new[] { "config.json", "vocab.json" })
@@ -74,6 +83,20 @@ public static class KittenModels
             await ModelDownloader.DownloadFileAsync(GetDownloadUrl(model, f), Path.Combine(dir, f.Replace('/', Path.DirectorySeparatorChar)),
                                                     progress, null, cancellationToken).ConfigureAwait(false);
         return dir;
+    }
+
+    /// <summary>The languages whose files (in <paramref name="weights"/>) are present in a repository directory.</summary>
+    public static List<string> InstalledLanguages(string dir, WeightFormat weights)
+    {
+        try
+        {
+            var repo = ModelRepository.Open(dir);
+            return repo.Languages.Where(l => HasAll(dir, [l], weights)).ToList();
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or ArgumentException or System.Text.Json.JsonException)
+        {
+            return [];
+        }
     }
 
     private static bool HasAll(string dir, IReadOnlyCollection<string>? languages, WeightFormat weights)

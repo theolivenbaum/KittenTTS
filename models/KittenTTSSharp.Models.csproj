@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One NuGet package of KittenTTS 2 model weights: the int8 ONNX graph, voices and config of one model / language,
+    downloaded at pack time from the pinned Hugging Face revision and installed next to the consuming application
+    (<app>/kittentts/kitten-tts-2-<family>/), where KittenTts.LoadAsync finds them without a download.
+
+      dotnet pack models/KittenTTSSharp.Models.csproj -c Release -p:ModelFamily=nano -p:ModelLanguage=en -p:Version=...
+      dotnet pack models/KittenTTSSharp.Models.csproj -c Release -p:ModelFamily=mini -p:Version=...
+
+    nano / pico: one package per language (en de es it pt ru hi fr); mini: one package for all its 16 languages.
+    English packages (and mini) also carry g2p/ (CMUdict lexicon + BART G2P) for the English front end.
+    Not part of KittenTTS.slnx, so building the solution never downloads weights.
+  -->
+
+  <PropertyGroup>
+    <ModelFamily Condition="'$(ModelFamily)' == ''">nano</ModelFamily>
+    <ModelLanguage Condition="'$(ModelLanguage)' == '' and '$(ModelFamily)' != 'mini'">en</ModelLanguage>
+    <ModelLanguage Condition="'$(ModelFamily)' == 'mini'"></ModelLanguage>
+    <ModelRepository>KittenML/kitten-tts-2-$(ModelFamily)</ModelRepository>
+    <ModelDirectory>kitten-tts-2-$(ModelFamily)</ModelDirectory>
+    <!-- Hugging Face revisions the packages are built from (update together with the version) -->
+    <ModelRevision Condition="'$(ModelFamily)' == 'nano'">0843ae614780b04e4260c91b601e374c4b81250d</ModelRevision>
+    <ModelRevision Condition="'$(ModelFamily)' == 'pico'">a5632deac7d92f6178db814d933eba746a97f2dc</ModelRevision>
+    <ModelRevision Condition="'$(ModelFamily)' == 'mini'">8e89ae2a718ee4bb893c67d67657e520e6112faf</ModelRevision>
+    <ModelBaseUrl Condition="'$(ModelBaseUrl)' == ''">https://huggingface.co</ModelBaseUrl>
+
+    <FamilyTitle>$(ModelFamily.Substring(0, 1).ToUpperInvariant())$(ModelFamily.Substring(1))</FamilyTitle>
+    <LanguageTitle Condition="'$(ModelLanguage)' != ''">.$(ModelLanguage.Substring(0, 1).ToUpperInvariant())$(ModelLanguage.Substring(1))</LanguageTitle>
+    <PackageId>KittenTTSSharp.Models.$(FamilyTitle)$(LanguageTitle)</PackageId>
+    <Description Condition="'$(ModelLanguage)' != ''">KittenTTS 2 $(ModelFamily) model weights for '$(ModelLanguage)' (int8 ONNX graph, voices, config) for KittenTTSSharp, from $(ModelRepository) (Apache-2.0). Installed to kittentts/$(ModelDirectory)/ next to the application.</Description>
+    <Description Condition="'$(ModelLanguage)' == ''">KittenTTS 2 $(ModelFamily) model weights for all its languages (int8 ONNX graph, voices, config, English G2P) for KittenTTSSharp, from $(ModelRepository) (Apache-2.0). Installed to kittentts/$(ModelDirectory)/ next to the application.</Description>
+    <PackageTags>$(PackageTags);model;weights</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- a content-only package: no lib/ assembly, files outside the conventional folders -->
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DownloadDir>$(MSBuildThisFileDirectory)files\$(ModelFamily)\$(ModelDirectory)\</DownloadDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- the library is a dependency (>= this version) -->
+    <ProjectReference Include="..\src\KittenTTS\KittenTTS.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ModelFile Include="config.json;vocab.json;README.md" />
+    <ModelFile Include="kitten_tts_2_$(ModelFamily)_$(ModelLanguage).onnx;voices_$(ModelLanguage).npz" Condition="'$(ModelLanguage)' != ''" />
+    <ModelFile Include="kitten_tts_2_mini.onnx" Condition="'$(ModelFamily)' == 'mini'" />
+    <ModelFile Include="voices_en.npz;voices_de.npz;voices_es.npz;voices_it.npz;voices_pt.npz;voices_ru.npz;voices_hi.npz;voices_da.npz;voices_fi.npz;voices_fr.npz;voices_ja.npz;voices_ko.npz;voices_nl.npz;voices_sv.npz;voices_sw.npz;voices_tr.npz"
+               Condition="'$(ModelFamily)' == 'mini'" />
+    <ModelFile Include="g2p/cmu_misaki_us.json;g2p/g2p_bart_en_us/config.json;g2p/g2p_bart_en_us/generation_config.json;g2p/g2p_bart_en_us/model.safetensors;g2p/g2p_bart_en_us/README.md"
+               Condition="'$(ModelLanguage)' == 'en' or '$(ModelFamily)' == 'mini'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="build\KittenTTSSharp.Models.targets" Pack="true" PackagePath="buildTransitive\$(PackageId).targets" />
+    <None Include="build\KittenTTSSharp.Models.targets" Pack="true" PackagePath="build\$(PackageId).targets" />
+  </ItemGroup>
+
+  <!-- Download the files (skipped when already present) and add them to the package under kittentts/<model>/. -->
+  <Target Name="DownloadModelFiles" BeforeTargets="Build;_GetPackageFiles;GenerateNuspec">
+    <ItemGroup>
+      <_ModelDownload Include="@(ModelFile)">
+        <Url>$(ModelBaseUrl)/$(ModelRepository)/resolve/$(ModelRevision)/%(Identity)</Url>
+        <Folder>$([System.IO.Path]::GetDirectoryName('$(DownloadDir)%(Identity)'))</Folder>
+        <TargetName>$([System.IO.Path]::GetFileName('%(Identity)'))</TargetName>
+      </_ModelDownload>
+    </ItemGroup>
+    <MakeDir Directories="%(_ModelDownload.Folder)" />
+    <DownloadFile SourceUrl="%(_ModelDownload.Url)" DestinationFolder="%(_ModelDownload.Folder)" DestinationFileName="%(_ModelDownload.TargetName)"
+                  Retries="5" RetryDelayMilliseconds="5000" SkipUnchangedFiles="true"
+                  Condition="!Exists('$(DownloadDir)%(_ModelDownload.Identity)')" />
+    <ItemGroup>
+      <None Include="$(DownloadDir)%(ModelFile.Identity)" Pack="true" PackagePath="kittentts\$(ModelDirectory)\$([System.IO.Path]::GetDirectoryName('%(ModelFile.Identity)'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
