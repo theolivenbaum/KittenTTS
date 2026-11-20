@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>KittenTTSSharp</PackageId>
+    <RootNamespace>KittenTTS</RootNamespace>
+    <Description>Pure C# (.NET 11) inference for the KittenTTS 2 nano / pico / mini text-to-speech models (PL-BERT + prosody predictor + iSTFTNet vocoder), with the English G2P front end ported to C#. No ONNX Runtime, no Python. Model weights come from the KittenTTSSharp.Models.* packages or are downloaded on first use.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" Condition="Exists('..\..\README.md')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Numerics.Tensors" Version="11.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="KittenTTS.Tests" />
+    <InternalsVisibleTo Include="KittenTTS.Cli" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/KittenTTS/KittenTTS.csproj" />
+    <Project Path="src/KittenTTS.Cli/KittenTTS.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/KittenTTS.Tests/KittenTTS.Tests.csproj" />
+  </Folder>
+</Solution>

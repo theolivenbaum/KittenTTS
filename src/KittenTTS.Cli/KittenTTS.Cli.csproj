@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>kitten-tts</AssemblyName>
+    <RootNamespace>KittenTTS.Cli</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KittenTTS\KittenTTS.csproj" />
+  </ItemGroup>
+
+</Project>

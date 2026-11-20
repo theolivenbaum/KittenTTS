@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+.vscode/
+*.swp
+TestResults/
+packages/
+/models/*/files/
+.venv*/
+__pycache__/
+*.download
+*.wav
+.DS_Store
