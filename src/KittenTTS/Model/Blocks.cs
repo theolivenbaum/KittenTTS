@@ -5,8 +5,8 @@ namespace KittenTTS.Model;
 /// <summary><c>AdaIN1d</c>: instance norm whose scale and shift come from the style vector (<c>fc(s) → γ, β</c>).</summary>
 internal sealed class AdaIn1d
 {
-    private readonly VectorLinear _fc;
-    private readonly float[]? _normWeight, _normBias;
+    internal readonly VectorLinear _fc;
+    internal readonly float[]? _normWeight, _normBias;
 
     public AdaIn1d(WeightReader r, string module)
     {
@@ -32,11 +32,11 @@ internal sealed class AdaIn1d
 /// </summary>
 internal sealed class AdainResBlk1d : IDisposable
 {
-    private readonly AdaIn1d _norm1, _norm2;
-    private readonly Conv1d _conv1, _conv2;
-    private readonly Conv1d? _conv1x1;
-    private readonly DepthwiseUpsample? _pool;
-    private readonly bool _upsample;
+    internal readonly AdaIn1d _norm1, _norm2;
+    internal readonly Conv1d _conv1, _conv2;
+    internal readonly Conv1d? _conv1x1;
+    internal readonly DepthwiseUpsample? _pool;
+    internal readonly bool _upsample;
 
     public AdainResBlk1d(WeightReader r, string module, bool upsample)
     {
@@ -85,9 +85,9 @@ internal sealed class AdainResBlk1d : IDisposable
 /// </summary>
 internal sealed class AdaInResBlock1 : IDisposable
 {
-    private readonly Conv1d[] _convs1 = new Conv1d[3], _convs2 = new Conv1d[3];
-    private readonly AdaIn1d[] _adain1 = new AdaIn1d[3], _adain2 = new AdaIn1d[3];
-    private readonly float[][] _alpha1 = new float[3][], _alpha2 = new float[3][];
+    internal readonly Conv1d[] _convs1 = new Conv1d[3], _convs2 = new Conv1d[3];
+    internal readonly AdaIn1d[] _adain1 = new AdaIn1d[3], _adain2 = new AdaIn1d[3];
+    internal readonly float[][] _alpha1 = new float[3][], _alpha2 = new float[3][];
 
     public AdaInResBlock1(WeightReader r, string module, int kernel, int[] dilations)
     {

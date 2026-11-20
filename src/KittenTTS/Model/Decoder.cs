@@ -12,10 +12,10 @@ namespace KittenTTS.Model;
 /// </summary>
 internal sealed class Decoder : IDisposable
 {
-    private readonly Conv1d _f0Conv, _nConv, _asrRes;
-    private readonly AdainResBlk1d _encode;
-    private readonly AdainResBlk1d[] _decode;
-    private readonly Generator _generator;
+    internal readonly Conv1d _f0Conv, _nConv, _asrRes;
+    internal readonly AdainResBlk1d _encode;
+    internal readonly AdainResBlk1d[] _decode;
+    internal readonly Generator _generator;
 
     public Decoder(WeightReader r, Architecture arch, bool onnxArithmetic)
     {
@@ -34,7 +34,6 @@ internal sealed class Decoder : IDisposable
         var f0 = _f0Conv.Forward(new Act(f0Curve.Length, 1, f0Curve), par);
         var nn = _nConv.Forward(new Act(n.Length, 1, n), par);
         var x = _encode.Forward(Act.ConcatChannels(asr, f0, nn), s, par);
-        DebugDump.Write("dec_encode", x);
         var asrRes = _asrRes.Forward(asr, par);
         bool res = true;
         foreach (var block in _decode)
@@ -42,7 +41,6 @@ internal sealed class Decoder : IDisposable
             if (res) x = Act.ConcatChannels(x, asrRes, f0, nn);
             bool up = ReferenceEquals(block, _decode[^1]);
             x = block.Forward(x, s, par);
-            DebugDump.Write($"dec_decode{Array.IndexOf(_decode, block)}", x);
             if (up) res = false;
         }
         return _generator.Forward(x, s, f0Curve, noise, par);
@@ -85,17 +83,17 @@ internal sealed class Generator : IDisposable
     private const float SineAmp = 0.1f, NoiseStd = 0.003f, VoicedThreshold = 10f;
     private const int SampleRate = 24000;
 
-    private readonly ConvTranspose1d[] _ups;
-    private readonly Conv1d[] _noiseConvs;
-    private readonly AdaInResBlock1[] _noiseRes;
-    private readonly AdaInResBlock1[] _resblocks;
-    private readonly Conv1d _convPost;
-    private readonly float[] _lLinearW;
-    private readonly float _lLinearB;
-    private readonly int _kernels, _nFft, _hop, _upsampleScale;
-    private readonly bool _softplus;
-    private readonly bool _fusedInterpolation;
-    private readonly Stft _stft;
+    internal readonly ConvTranspose1d[] _ups;
+    internal readonly Conv1d[] _noiseConvs;
+    internal readonly AdaInResBlock1[] _noiseRes;
+    internal readonly AdaInResBlock1[] _resblocks;
+    internal readonly Conv1d _convPost;
+    internal readonly float[] _lLinearW;
+    internal readonly float _lLinearB;
+    internal readonly int _kernels, _nFft, _hop, _upsampleScale;
+    internal readonly bool _softplus;
+    internal readonly bool _fusedInterpolation;
+    internal readonly Stft _stft;
 
     /// <param name="r">Weights.</param>
     /// <param name="d">Decoder shape.</param>
@@ -141,18 +139,14 @@ internal sealed class Generator : IDisposable
 
     public float[] Forward(Act x, ReadOnlySpan<float> s, float[] f0Curve, SynthesisNoise noise, Parallelism par)
     {
-        var har = HarmonicSource(f0Curve, noise, par);
-        DebugDump.Write("gen_har", har);
+        var (_, har) = HarmonicSource(f0Curve, noise, par);
         int n = _ups.Length;
         for (int i = 0; i < n; i++)
         {
             x = F.LeakyRelu(x, 0.1f);
             var xSource = _noiseConvs[i].Forward(har, par);
-            DebugDump.Write($"gen_noise_conv{i}", xSource);
             xSource = _noiseRes[i].Forward(xSource, s, par);
-            DebugDump.Write($"gen_noise_res{i}", xSource);
             x = _ups[i].Forward(x, par);
-            DebugDump.Write($"gen_ups{i}", x);
             if (i == n - 1) x = F.ReflectPadLeft1(x);
             F.AddInPlace(x, xSource);
             Act? xs = null;
@@ -164,11 +158,14 @@ internal sealed class Generator : IDisposable
             }
             F.ScaleInPlace(xs!, 1f / _kernels);
             x = xs!;
-            DebugDump.Write($"gen_stage{i}", x);
         }
         x = F.LeakyRelu(x, 0.01f, inPlace: true);
-        x = _convPost.Forward(x, par);
-        DebugDump.Write("gen_conv_post", x);
+        return Istft(_convPost.Forward(x, par));
+    }
+
+    /// <summary>conv_post output [frames, n_fft + 2] → waveform: exp / softplus magnitude, sin phase, iSTFT.</summary>
+    internal float[] Istft(Act x)
+    {
         int bins = _nFft / 2 + 1;
         var mag = new float[(long)x.T * bins];
         var phase = new float[(long)x.T * bins];
@@ -190,7 +187,7 @@ internal sealed class Generator : IDisposable
     /// frequency, linear downsampling by the upsample scale, cumulative phase, linear upsampling back. (Its random
     /// initial phase lands on sample 0, which the downsampling never reads, so it has no effect and is omitted.)
     /// </summary>
-    private Act HarmonicSource(float[] f0Curve, SynthesisNoise noise, Parallelism par)
+    internal (float[] Source, Act Har) HarmonicSource(float[] f0Curve, SynthesisNoise noise, Parallelism par)
     {
         int frames = f0Curve.Length;                    // F0 at twice the decoder frame rate
         int scale = _upsampleScale;
@@ -243,7 +240,6 @@ internal sealed class Generator : IDisposable
             source[i] = MathF.Tanh(acc + _lLinearB);
         }
         });
-        DebugDump.Write("gen_source", source, [source.Length]);
         var (mag, ph, stftFrames) = _stft.Forward(source);
         int bins = _nFft / 2 + 1;
         var har = new Act(stftFrames, 2 * bins);
@@ -256,7 +252,7 @@ internal sealed class Generator : IDisposable
                 row[bins + b] = ph[t * bins + b];
             }
         }
-        return har;
+        return (source, har);
     }
 
     public void Dispose()

@@ -24,13 +24,14 @@ public sealed class ParityTests(ITestOutputHelper output)
     private const double DecoderOnly = 1e-3;
 
     [Fact]
-    public void Float32MatchesPyTorch()
+    public void MatchesPyTorch()
     {
         if (!Fixtures.Available(output)) return;
         var manifest = Fixtures.LoadManifest();
         var repo = ModelRepository.Open(Fixtures.ModelDir!);
-        using var weights = repo.OpenWeights(manifest.Language, WeightFormat.Float32);
-        using var model = new KittenNetwork(weights, repo.Architecture(manifest.Language));
+        // the weights the PyTorch reference ran (the checkpoint, or the int8 graph's dequantized weights)
+        using var weights = repo.OpenWeights(manifest.Language, manifest.Format);
+        using var model = new KittenNetwork(weights, repo.Architecture(manifest.Language), onnxArithmetic: false);
         using var par = new Parallelism(0);
         foreach (var c in manifest.Cases)
         {
@@ -54,14 +55,14 @@ public sealed class ParityTests(ITestOutputHelper output)
     /// <summary>The decoder on PyTorch's own text features, durations, F0 and energy: isolates it from the float
     /// rounding of the stages before it (which the sine source integrates into its phase, see the README).</summary>
     [Fact]
-    public void Float32DecoderMatchesPyTorch()
+    public void DecoderMatchesPyTorch()
     {
         if (!Fixtures.Available(output)) return;
         var manifest = Fixtures.LoadManifest();
         var repo = ModelRepository.Open(Fixtures.ModelDir!);
         var arch = repo.Architecture(manifest.Language);
-        using var weights = repo.OpenWeights(manifest.Language, WeightFormat.Float32);
-        using var model = new KittenNetwork(weights, arch);
+        using var weights = repo.OpenWeights(manifest.Language, manifest.Format);
+        using var model = new KittenNetwork(weights, arch, onnxArithmetic: false);
         using var par = new Parallelism(0);
         foreach (var c in manifest.Cases)
         {

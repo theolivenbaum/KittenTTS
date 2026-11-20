@@ -6,10 +6,10 @@ namespace KittenTTS.Model;
 /// <summary><c>TextEncoder</c>: embedding → depth × (conv k5 → LayerNorm → LeakyReLU 0.2) → bidirectional LSTM.</summary>
 internal sealed class TextEncoder : IDisposable
 {
-    private readonly float[] _embedding;
-    private readonly int _channels;
-    private readonly List<(Conv1d Conv, float[] Gamma, float[] Beta)> _cnn = new();
-    private readonly BiLstm _lstm;
+    internal readonly float[] _embedding;
+    internal readonly int _channels;
+    internal readonly List<(Conv1d Conv, float[] Gamma, float[] Beta)> _cnn = new();
+    internal readonly BiLstm _lstm;
 
     public TextEncoder(WeightReader r, int kernelSize)
     {
@@ -25,14 +25,20 @@ internal sealed class TextEncoder : IDisposable
     public Act Forward(int[] tokens, Parallelism par)
     {
         var x = Embed(_embedding, _channels, tokens);
-        foreach (var (conv, gamma, beta) in _cnn)
-        {
-            x = conv.Forward(x, par);
-            x = F.LayerNorm(x, gamma, beta, 1e-5f);
-            F.LeakyRelu(x, 0.2f, inPlace: true);
-        }
+        for (int i = 0; i < _cnn.Count; i++) x = CnnBlock(i, x, par);
         return _lstm.Forward(x, par);
     }
+
+    /// <summary>One <c>cnn.{i}</c> block: conv → LayerNorm → LeakyReLU 0.2.</summary>
+    internal Act CnnBlock(int i, Act x, Parallelism par)
+    {
+        var (conv, gamma, beta) = _cnn[i];
+        x = conv.Forward(x, par);
+        x = F.LayerNorm(x, gamma, beta, 1e-5f);
+        return F.LeakyRelu(x, 0.2f, inPlace: true);
+    }
+
+    internal int CnnCount => _cnn.Count;
 
     internal static Act Embed(float[] table, int dim, int[] tokens)
     {
@@ -61,11 +67,11 @@ internal sealed class TextEncoder : IDisposable
 internal sealed class Albert : IDisposable
 {
     private const string L = "bert.encoder.albert_layer_groups.0.albert_layers.0.";
-    private readonly float[] _word, _pos, _type, _embLnW, _embLnB;
-    private readonly int _embDim, _hidden, _heads, _layers;
-    private readonly float _lnEps;
-    private readonly Linear _mapIn, _q, _k, _v, _dense, _ffn, _ffnOut;
-    private readonly float[] _attLnW, _attLnB, _fullLnW, _fullLnB;
+    internal readonly float[] _word, _pos, _type, _embLnW, _embLnB;
+    internal readonly int _embDim, _hidden, _heads, _layers;
+    internal readonly float _lnEps;
+    internal readonly Linear _mapIn, _q, _k, _v, _dense, _ffn, _ffnOut;
+    internal readonly float[] _attLnW, _attLnB, _fullLnW, _fullLnB;
 
     public Albert(WeightReader r, int heads, int layers, float layerNormEps)
     {
@@ -99,34 +105,32 @@ internal sealed class Albert : IDisposable
     {
         int T = tokens.Length;
         if (T > MaxPositions) throw new ArgumentException($"PL-BERT takes at most {MaxPositions} tokens, got {T}.");
+        var h = _mapIn.Forward(Embeddings(tokens), par);
+        for (int l = 0; l < _layers; l++) h = Layer(h, par);
+        return h;
+    }
+
+    /// <summary><c>embeddings</c>: word + token type 0 + position, LayerNorm.</summary>
+    internal Act Embeddings(int[] tokens)
+    {
         var e = TextEncoder.Embed(_word, _embDim, tokens);
-        for (int t = 0; t < T; t++)
+        for (int t = 0; t < tokens.Length; t++)
         {
             var row = e.Row(t);
             // word + token_type + position, the order of BertEmbeddings / AlbertEmbeddings
             TensorPrimitives.Add(row, _type.AsSpan(0, _embDim), row);
             TensorPrimitives.Add(row, _pos.AsSpan(t * _embDim, _embDim), row);
         }
-        e = F.LayerNorm(e, _embLnW, _embLnB, _lnEps);
-        DebugDump.Write("bert_emb_ln", e);
-        var h = _mapIn.Forward(e, par);
-        DebugDump.Write("bert_map_in", h);
-        for (int l = 0; l < _layers; l++)
-        {
-            h = Layer(h, par);
-            DebugDump.Write($"bert_layer{l:D2}", h);
-        }
-        return h;
+        return F.LayerNorm(e, _embLnW, _embLnB, _lnEps);
     }
 
-    private Act Layer(Act h, Parallelism par)
+    /// <summary>One application of the shared ALBERT layer.</summary>
+    internal Act Layer(Act h, Parallelism par)
     {
         int T = h.T, D = _hidden, hd = D / _heads;
-        Profiler.Mark("bert_other");
         var q = _q.Forward(h, par);
         var k = _k.Forward(h, par);
         var v = _v.Forward(h, par);
-        Profiler.Mark("bert_qkv");
         var ctx = Act.Uninit(T, D);
         float scale = 1f / MathF.Sqrt(hd);
         // per head: scores = Q_h K_hᵀ, softmax, ctx_h = P V_h, as GEMMs on packed K_h / V_h (single-threaded inside,
@@ -147,17 +151,12 @@ internal sealed class Albert : IDisposable
                 }
             }
         });
-        Profiler.Mark("bert_attention");
         var proj = _dense.Forward(ctx, par);
         F.AddInPlace(proj, h);
         var att = F.LayerNorm(proj, _attLnW, _attLnB, _lnEps);
-        Profiler.Mark("bert_dense_ln");
         var f = _ffn.Forward(att, par);
-        Profiler.Mark("bert_ffn");
         GeluNew(f.Data);
-        Profiler.Mark("bert_gelu");
         var fo = _ffnOut.Forward(f, par);
-        Profiler.Mark("bert_ffn");
         F.AddInPlace(fo, att);
         return F.LayerNorm(fo, _fullLnW, _fullLnB, _lnEps);
     }
@@ -196,12 +195,12 @@ internal sealed class Albert : IDisposable
 /// </summary>
 internal sealed class ProsodyPredictor : IDisposable
 {
-    private readonly List<(BiLstm Lstm, VectorLinear Fc)> _encoder = new();
-    private readonly BiLstm _lstm, _shared;
-    private readonly Linear _durationProj;
-    private readonly AdainResBlk1d[] _f0, _n;
-    private readonly Conv1d _f0Proj, _nProj;
-    private readonly int _hidden;
+    internal readonly List<(BiLstm Lstm, VectorLinear Fc)> _encoder = new();
+    internal readonly BiLstm _lstm, _shared;
+    internal readonly Linear _durationProj;
+    internal readonly AdainResBlk1d[] _f0, _n;
+    internal readonly Conv1d _f0Proj, _nProj;
+    internal readonly int _hidden;
 
     public ProsodyPredictor(WeightReader r)
     {
@@ -227,16 +226,22 @@ internal sealed class ProsodyPredictor : IDisposable
         foreach (var (lstm, fc) in _encoder)
         {
             x = lstm.Forward(x, par);
-            // AdaLayerNorm: layer_norm without affine, then (1 + γ) x + β
-            var gb = fc.Forward(s);
-            x = F.LayerNorm(x, null, null, 1e-5f);
-            int c = x.C;
-            for (int t = 0; t < x.T; t++)
-            {
-                var row = x.Row(t);
-                for (int i = 0; i < c; i++) row[i] = (1f + gb[i]) * row[i] + gb[c + i];
-            }
+            x = AdaLayerNorm(x, fc, s);
             x = Act.ConcatChannels(x, styleAct);
+        }
+        return x;
+    }
+
+    /// <summary><c>AdaLayerNorm</c>: layer_norm without affine, then (1 + γ) x + β with γ, β = fc(s).</summary>
+    internal static Act AdaLayerNorm(Act x, VectorLinear fc, ReadOnlySpan<float> s)
+    {
+        var gb = fc.Forward(s);
+        x = F.LayerNorm(x, null, null, 1e-5f);
+        int c = x.C;
+        for (int t = 0; t < x.T; t++)
+        {
+            var row = x.Row(t);
+            for (int i = 0; i < c; i++) row[i] = (1f + gb[i]) * row[i] + gb[c + i];
         }
         return x;
     }

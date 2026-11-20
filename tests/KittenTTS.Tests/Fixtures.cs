@@ -31,7 +31,11 @@ public static class Fixtures
     }
 
     public sealed record Case(string Name, string Text, string Phonemes, int[] Tokens);
-    public sealed record Manifest(string Model, string Language, string Voice, float Speed, List<Case> Cases);
+    public sealed record Manifest(string Model, string Language, string Voice, float Speed, List<Case> Cases, string? Weights = null)
+    {
+        /// <summary>The weights the reference ran (fp32, or int8: PyTorch with the int8 graph's dequantized weights).</summary>
+        public WeightFormat Format => Weights == "int8" ? WeightFormat.Int8 : WeightFormat.Float32;
+    }
 
     public static Manifest LoadManifest() =>
         JsonSerializer.Deserialize<Manifest>(File.ReadAllText(Path.Combine(ReferenceDir!, "manifest.json")),

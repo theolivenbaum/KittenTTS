@@ -9,10 +9,14 @@ packages of the model weights.
   (text normalisation, spaCy's tokenizer, misaki's lexicon, CMUdict, a BART G2P) are all managed code, on the
   packed GEMM, worker pool and SIMD kernels of [curiosity-ai/parakeet](https://github.com/curiosity-ai/parakeet).
   Other languages use the espeak-ng library, as the original does.
-- **Validated against the original.** Every stage up to F0 and energy matches PyTorch (float32 weights) and ONNX
-  Runtime (int8 weights) to ~1e-6, durations are identical, and the English front end reproduces the Python one
+- **Validated layer by layer.** Every module (each conv block, LSTM, ALBERT layer application, AdaIN block, the
+  generator's source, convolutions, residual blocks and iSTFT) is run on the input PyTorch gave it and agrees with
+  PyTorch's output to ≤ 2.8e-6 (relative L2), for float32 and int8 weights; durations are identical to PyTorch and ONNX
+  Runtime, and the English front end reproduces the Python one
   exactly on 95% of 600 reference sentences (100% for the normaliser and the tokenizer); the espeak front end matches
   on every test sentence of 14 languages. See [Validation](#validation).
+- **CPU only, any CPU.** No GPU backend: the kernels use AVX-512 or AVX2 when the CPU has them and portable
+  .NET code otherwise (ARM64 included), all three paths tested.
 - **Weights from NuGet or Hugging Face.** `KittenTTSSharp.Models.*` packages install a model next to your application;
   without one, the files are downloaded once from `KittenML/kitten-tts-2-{nano,pico,mini}`.
 
@@ -119,7 +123,7 @@ end token's frames and every chunk's leading pause but the first are cut, 5 ms f
 | `src/KittenTTS/Text/Espeak/`, `Text/LanguagePhonemizer.cs` | espeak-ng P/Invoke, phonemizer / misaki espeak semantics, v1 / v2 folds |
 | `src/KittenTTS.Cli/` | `kitten-tts` command-line tool |
 | `models/` | The weight packages (`KittenTTSSharp.Models.csproj`, packed per model / language) |
-| `tests/KittenTTS.Tests/` | Parity with PyTorch / ONNX Runtime, front-end parity, normalisation |
+| `tests/KittenTTS.Tests/` | Layer-by-layer and end-to-end parity with PyTorch / ONNX Runtime, kernels, front-end parity |
 | `scripts/` | Reference dumps (`torch_reference.py`, `english_reference.py`, `frontend_reference.py`), data export, kernel generator |
 
 ### Numerics
@@ -141,15 +145,39 @@ end token's frames and every chunk's leading pause but the first are cut, 5 ms f
 dotnet test tests/KittenTTS.Tests -c Release
 ```
 
-The kernel and front-end tests always run. The model tests need a local repository and a reference dump, and print
-`SKIPPED` without them:
+The kernel and front-end tests always run (`DOTNET_EnableAVX512F=0` / `DOTNET_EnableHWIntrinsic=0` select the AVX2 /
+scalar paths; CI runs both). The model tests need a local repository and a reference dump, and print `SKIPPED`
+without them:
 
 ```bash
 pip install torch safetensors transformers onnx onnxruntime numpy misaki==0.9.4 spacy phonemizer espeakng_loader num2words
 python -m spacy download en_core_web_sm
-python scripts/torch_reference.py --model <kitten-tts-2-nano dir> --language en --out ref/nano-en --onnx
+python scripts/torch_reference.py --model <kitten-tts-2-nano dir> --language en --out ref/nano-en --onnx --layers
+python scripts/torch_reference.py --model <kitten-tts-2-nano dir> --language en --out ref/nano-en-int8 --onnx --layers --weights int8
 KITTENTTS_MODEL_DIR=<kitten-tts-2-nano dir> KITTENTTS_REFERENCE_DIR=ref/nano-en dotnet test tests/KittenTTS.Tests -c Release
 ```
+
+**Layer by layer** (`LayerParityTests`). `--layers` records, with forward hooks, the input and output of every module
+the port implements (118 tensors per sentence for nano). The test runs each C# module on PyTorch's input and compares
+its output, so every layer is checked in isolation and an error can neither hide behind nor be blamed on an earlier
+one: ~300 checks per model over 5 sentences, bound 2e-5. `--weights int8` runs PyTorch with the int8 graph's
+dequantized weights, mapped onto the modules independently of the C# importer (its durations match ONNX Runtime's on
+every case), so the int8 path, including the weights the exporter renamed, is validated layer by layer too.
+
+| Worst isolated layer (rel. L2), float32 / int8 weights | nano | pico | mini |
+|---|---|---|---|
+| Text encoder conv blocks and BiLSTM | 9.5e-7 / 9.4e-7 | 7.6e-7 / 7.4e-7 | 1.4e-6 / 1.4e-6 |
+| PL-BERT layer (12 applications) | 1.6e-6 / 1.5e-6 | 1.6e-7 / 1.6e-7 | 1.5e-6 / 1.5e-6 |
+| Duration encoder, predictor LSTMs, F0 / energy blocks | 4.6e-7 / 4.5e-7 | 4.2e-7 / 4.1e-7 | 1.6e-6 / 1.5e-6 |
+| Decoder blocks | 8.0e-7 / 7.9e-7 | 5.2e-7 / 5.2e-7 | 1.2e-6 / 1.2e-6 |
+| Harmonic source, its STFT magnitude | 9.4e-8 / 9.4e-8 | 8.9e-8 / 8.9e-8 | 8.6e-8 / 8.6e-8 |
+| Generator convolutions and residual blocks | 9.3e-7 / 9.0e-7 | 8.0e-7 / 7.9e-7 | 2.8e-6 / 2.8e-6 |
+| iSTFT | 2.4e-7 / 2.4e-7 | 2.2e-7 / 2.2e-7 | 1.6e-7 / 1.6e-7 |
+| Whole generator (chained, see below) | 1.4e-5 / 2.3e-5 | 2.2e-4 / 2.0e-4 | 3.0e-4 / 2.1e-4 |
+
+The AVX2 and scalar paths give the same results (checked for nano).
+
+**End to end** (`ParityTests`), from token ids:
 
 | | nano (en) | mini (en) |
 |---|---|---|

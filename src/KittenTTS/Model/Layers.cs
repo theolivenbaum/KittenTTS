@@ -296,7 +296,6 @@ internal sealed unsafe class BiLstm : IDisposable
             Recur(gates, y, 0);
             Recur(gates, y, 1);
         }
-        if (DebugDump.Enabled) DebugDump.Write(DebugDump.Seq("lstm"), y);
         return y;
     }
 

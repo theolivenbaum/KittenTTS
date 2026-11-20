@@ -21,17 +21,23 @@ public sealed record ModelOutput(float[] Waveform, int[] Durations);
 /// </summary>
 public sealed class KittenNetwork : IDisposable
 {
-    private readonly TextEncoder _textEncoder;
-    private readonly Albert _bert;
-    private readonly Linear _bertEncoder;
-    private readonly ProsodyPredictor _predictor;
-    private readonly Decoder _decoder;
+    internal readonly TextEncoder _textEncoder;
+    internal readonly Albert _bert;
+    internal readonly Linear _bertEncoder;
+    internal readonly ProsodyPredictor _predictor;
+    internal readonly Decoder _decoder;
 
     /// <summary>Stage outputs, for parity tests: <c>t_en</c>, <c>bert</c>, <c>d_en</c>, <c>d</c>, <c>durations</c>,
     /// <c>F0</c>, <c>N</c>, <c>asr</c>, as float arrays in channels-last layout.</summary>
     public delegate void TraceCallback(string name, float[] data, int[] shape);
 
-    public KittenNetwork(ITensorSource weights, Architecture architecture)
+    public KittenNetwork(ITensorSource weights, Architecture architecture) : this(weights, architecture, null) { }
+
+    /// <param name="weights">The checkpoint.</param>
+    /// <param name="architecture">The model's shape.</param>
+    /// <param name="onnxArithmetic">Repeat ONNX Runtime's operation order in the sine source (default: for weights read
+    /// from an ONNX graph) or PyTorch's; tests set it to compare int8 weights with PyTorch.</param>
+    internal KittenNetwork(ITensorSource weights, Architecture architecture, bool? onnxArithmetic)
     {
         Architecture = architecture;
         if (weights is OnnxWeights onnx)
@@ -44,7 +50,7 @@ public sealed class KittenNetwork : IDisposable
         _bert = new Albert(r, architecture.AlbertHeads, architecture.AlbertLayers, architecture.AlbertLayerNormEps);
         _bertEncoder = Linear.Load(r, "bert_encoder");
         _predictor = new ProsodyPredictor(r);
-        _decoder = new Decoder(r, architecture, onnxArithmetic: weights is OnnxWeights);
+        _decoder = new Decoder(r, architecture, onnxArithmetic ?? weights is OnnxWeights);
     }
 
     public Architecture Architecture { get; }
@@ -77,7 +83,6 @@ public sealed class KittenNetwork : IDisposable
         Profiler.Mark("durations");
         var en = F.Expand(d, durations);
         var (f0, n) = _predictor.F0N(en, sProsody, par);
-        DebugDump.Write("F0", f0, [f0.Length]);
         Profiler.Mark("f0n");
         var asr = F.Expand(tEn, durations);
         var wav = _decoder.Forward(asr, f0, n, sAcoustic, noise, par);

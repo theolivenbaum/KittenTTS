@@ -4,7 +4,8 @@ Guidance for Claude Code (and other contributors) working in this repository.
 
 ## Goal
 
-Port KittenTTS to C# (.NET 11): pure managed inference with no Python and no ONNX Runtime, numerically equivalent to the
+Port KittenTTS to C# (.NET 11): pure managed **CPU** inference (no GPU backend; AVX-512 / AVX2 / portable scalar paths)
+with no Python and no ONNX Runtime, numerically equivalent to the
 original implementation, published as NuGet packages (the `KittenTTSSharp` library plus one package per set of model
 weights). The original Python implementation lives in `.reference/` and is the reference for every behaviour.
 
@@ -39,13 +40,17 @@ dotnet test tests/KittenTTS.Tests -c Release
 ```
 
 Model tests need `KITTENTTS_MODEL_DIR` (a local `kitten-tts-2-*` repository) and `KITTENTTS_REFERENCE_DIR` (the output of
-`scripts/torch_reference.py --onnx` for that repository); without them they print `SKIPPED` and pass. Run them with a
-nano (or pico) and the mini repository after changing numerics. The phoneme test needs `KITTENTTS_MODEL_DIR` only. The
+`scripts/torch_reference.py --onnx --layers` for that repository, and with `--weights int8` for the int8 path); without
+them they print `SKIPPED` and pass. After changing numerics run them for nano, pico and mini, float32 and int8
+references, and the kernel tests also with `DOTNET_EnableAVX512F=0` and `DOTNET_EnableHWIntrinsic=0`. The phoneme test needs `KITTENTTS_MODEL_DIR` only. The
 espeak string tests compare only against the espeak-ng build the reference was made with (1.52, espeakng_loader's):
 set `KITTENTTS_ESPEAK_LIBRARY` and `ESPEAK_DATA_PATH` to it.
 
 ## Rules
 
+- Every module must pass `LayerParityTests` (each layer run on PyTorch's recorded input, rel. L2 ≤ 2e-5). A new or
+  changed module gets a hook in `torch_reference.py`'s `LayerRecorder` and a check in `LayerParityTests`.
+- CPU only. Every intrinsic needs an `IsSupported` guard and a portable fallback (no unguarded `Sse.*`, `Avx*.*`).
 - Results must stay numerically equivalent to the reference: float32 weights to PyTorch, int8 weights to ONNX Runtime
   with basic graph optimizations. Stages up to F0 / energy agree to ~1e-6 and durations must be identical; see the
   `ParityTests` summary for why the waveform bounds are looser. Approximations belong behind an option, never in the

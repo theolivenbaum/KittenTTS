@@ -73,6 +73,19 @@ steps:
     projects: 'tests/KittenTTS.Tests/KittenTTS.Tests.csproj'
     arguments: '-c $(buildConfiguration) --no-build'
 
+# CPU only: the kernels have AVX-512, AVX2 and scalar paths; check the two the build agent would not pick by itself.
+- task: PowerShell@2
+  displayName: 'kernel tests on the AVX2 and scalar paths'
+  inputs:
+    targetType: 'inline'
+    script: |
+      foreach ($mode in @('DOTNET_EnableAVX512F', 'DOTNET_EnableHWIntrinsic')) {
+        Set-Item "env:$mode" '0'
+        dotnet test tests/KittenTTS.Tests/KittenTTS.Tests.csproj -c $(buildConfiguration) --no-build --filter "FullyQualifiedName~KernelTests"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Remove-Item "env:$mode"
+      }
+
 - task: DotNetCoreCLI@2
   displayName: 'pack KittenTTSSharp'
   inputs:

@@ -169,7 +169,8 @@ public static unsafe class Gemm
                         if (pfDone < pfBytes)
                         {
                             long end = Math.Min(pfBytes, pfDone + pfPerCall);
-                            for (; pfDone < end; pfDone += 64) Sse.Prefetch1(pfNext + pfDone);
+                            if (Sse.IsSupported) for (; pfDone < end; pfDone += 64) Sse.Prefetch1(pfNext + pfDone);
+                            else pfDone = end;   // no prefetch instruction (e.g. ARM64): skip
                         }
                         float* panel = b.Panel(nb, k0);
                         float* bp = biasTile + (nb - nbBlock) * NR;
