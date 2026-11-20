@@ -1,0 +1,318 @@
+{
+ "espeak_version": "1.52.0",
+ "espeak_build": "espeakng_loader",
+ "cases": [
+  {
+   "version": "v1",
+   "language": "de",
+   "text": "Guten Morgen, wie geht es dir heute?",
+   "phonemes": "ɡˈuːtən mˈɔɾɡən, viː ɡˈeːt ɛs diːɾ hˈɔøtə?"
+  },
+  {
+   "version": "v1",
+   "language": "de",
+   "text": "Die Katze schläft auf dem warmen Sofa (seit 3 Stunden).",
+   "phonemes": "diː kˈaʦə ʃlˈɛft Wf deːm vˈaɾmən zˈoːfɑː (zIt dɾˈI ʃtˈʊndən)."
+  },
+  {
+   "version": "v1",
+   "language": "de",
+   "text": "Er sagte: „Das kostet 19,99 Euro!“ Wirklich?",
+   "phonemes": "ɛɾ zˈɑːɡtə: das kˈɔstət nˈɔønʦeːn kˌɔmɑː nˈɔøn nˈɔøn ˈɔøroː!“ vˈɪɾklɪç?"
+  },
+  {
+   "version": "v1",
+   "language": "de",
+   "text": "Übermorgen fahren wir nach München – endlich.",
+   "phonemes": "ˌyːbɜmˈɔɾɡən fˈɑːrən viːɾ nɑːx mˈʏnçən ˈɛntlɪç."
+  },
+  {
+   "version": "v1",
+   "language": "es",
+   "text": "Hola, ¿cómo estás? Hace un día precioso.",
+   "phonemes": "ˈola, kˈomo estˈas? ˈaθe ˈun dˈia pɾeθjˈoso."
+  },
+  {
+   "version": "v1",
+   "language": "es",
+   "text": "Tengo 25 años y vivo en Madrid (España).",
+   "phonemes": "tˈɛŋɡo βˌAntiθˈinko ˈaɲos i βˈiβo en maðɾˈið (espˈaɲa)."
+  },
+  {
+   "version": "v1",
+   "language": "es",
+   "text": "¡Qué bien! «Vamos», dijo él.",
+   "phonemes": "kˈe βjˈen! “bˈamos”, dˈixo ˈel."
+  },
+  {
+   "version": "v1",
+   "language": "it",
+   "text": "Buongiorno, come stai oggi?",
+   "phonemes": "bʊonʤˈɔrno, kˌome stˈaj ˈɔʤːɪ?"
+  },
+  {
+   "version": "v1",
+   "language": "it",
+   "text": "Il treno parte alle 7:45 dalla stazione centrale.",
+   "phonemes": "il trˈɛno pˈarte ˌalle sˈɛtːe:kʊaɾˈaːntaʧˈinkwe dˌalla staʦiˈone ʧentrˈale."
+  },
+  {
+   "version": "v1",
+   "language": "pt",
+   "text": "Olá, tudo bem? Hoje está um dia lindo.",
+   "phonemes": "olˈa, tˈudʊ bˈAŋ? ˈoʒj estˌa ũŋ ʤˈiæ lˈiŋdʊ."
+  },
+  {
+   "version": "v1",
+   "language": "pt",
+   "text": "Eu tenho 3 irmãos e (às vezes) brigamos.",
+   "phonemes": "eʊ tˌeɲʊ trˈez iɾəmˈɐ̃ʊ̃z i (aːz vˈezyz) brˌiɡˈɐ̃mʊs."
+  },
+  {
+   "version": "v1",
+   "language": "ru",
+   "text": "Привет, как дела?",
+   "phonemes": "prʲivʲˈet, kˈɑk dʲˈela?"
+  },
+  {
+   "version": "v1",
+   "language": "ru",
+   "text": "Щука плавала в реке; было 12 градусов.",
+   "phonemes": "ɕˈuka plˈɑvʌla v rʲikʲˈe; bˌylʌ dvʲɪnˈɑtʦʌtʲ ɡrˈɑdusʌf."
+  },
+  {
+   "version": "v1",
+   "language": "hi",
+   "text": "नमस्ते, आप कैसे हैं? मैं ठीक हूँ।",
+   "phonemes": "nəmˈʌsteː, ˌaːp kˈɛːseː hɛ̃? mɛ̃ ʈʰˈiːk hũ"
+  },
+  {
+   "version": "v1",
+   "language": "hi",
+   "text": "सड़क पर बहुत भीड़ थी। हम 67 लोग थे॥",
+   "phonemes": "sˈʌr.ək pˈʌɾ bˈʌhʊt bʰˈiːr. tʰi hˌəm sˈʌr.səʈʰ lˈoːɡ tʰeː"
+  },
+  {
+   "version": "v1",
+   "language": "hi",
+   "text": "पढ़ाई ज़रूरी है।",
+   "phonemes": "pər.hˈaːi zəɾˈuːɾi hɛː"
+  },
+  {
+   "version": "v1",
+   "language": "fr",
+   "text": "Bonjour, comment allez-vous aujourd'hui ?",
+   "phonemes": "bɔ̃ʒˈuʁ, kɔmˌɑ̃ alˈevuz oʒuʁdyˈi ?"
+  },
+  {
+   "version": "v1",
+   "language": "fr",
+   "text": "Il fait beau ; nous irons au parc (avec Marie).",
+   "phonemes": "il fˈɛ bˈo ; nuz iʁˈɔ̃z o pˈaʁk (avˌɛk maʁˈi)."
+  },
+  {
+   "version": "v1",
+   "language": "fr",
+   "text": "« C'est incroyable ! », s'exclama-t-il.",
+   "phonemes": "“ sɛt ɛ̃kʁwajˈabl ! ”, sɛksklamˈatˈil."
+  },
+  {
+   "version": "v2",
+   "language": "de",
+   "text": "Guten Morgen, wie geht es dir heute?",
+   "phonemes": "ɡˈuːtən mˈɔɾɡən, viː ɡˈeːt ɛs diːɾ hˈɔøtə?"
+  },
+  {
+   "version": "v2",
+   "language": "de",
+   "text": "Die Katze schläft auf dem warmen Sofa (seit 3 Stunden).",
+   "phonemes": "diː kˈaʦə ʃlˈɛft Wf deːm vˈaɾmən zˈoːfɑː (zIt dɾˈI ʃtˈʊndən)."
+  },
+  {
+   "version": "v2",
+   "language": "de",
+   "text": "Er sagte: „Das kostet 19,99 Euro!“ Wirklich?",
+   "phonemes": "ɛɾ zˈɑːɡtə: das kˈɔstət nˈɔønʦeːn kˌɔmɑː nˈɔøn nˈɔøn ˈɔøroː!“ vˈɪɾklɪç?"
+  },
+  {
+   "version": "v2",
+   "language": "de",
+   "text": "Übermorgen fahren wir nach München – endlich.",
+   "phonemes": "ˌyːbɜmˈɔɾɡən fˈɑːrən viːɾ nɑːx mˈʏnçən ˈɛntlɪç."
+  },
+  {
+   "version": "v2",
+   "language": "es",
+   "text": "Hola, ¿cómo estás? Hace un día precioso.",
+   "phonemes": "ˈola, kˈomo estˈas? ˈaθe ˈun dˈia pɾeθjˈoso."
+  },
+  {
+   "version": "v2",
+   "language": "es",
+   "text": "Tengo 25 años y vivo en Madrid (España).",
+   "phonemes": "tˈɛŋɡo βˌAntiθˈinko ˈaɲos i βˈiβo en maðɾˈið (espˈaɲa)."
+  },
+  {
+   "version": "v2",
+   "language": "es",
+   "text": "¡Qué bien! «Vamos», dijo él.",
+   "phonemes": "kˈe βjˈen! “bˈamos”, dˈixo ˈel."
+  },
+  {
+   "version": "v2",
+   "language": "it",
+   "text": "Buongiorno, come stai oggi?",
+   "phonemes": "bʊonʤˈɔrno, kˌome stˈaj ˈɔʤːɪ?"
+  },
+  {
+   "version": "v2",
+   "language": "it",
+   "text": "Il treno parte alle 7:45 dalla stazione centrale.",
+   "phonemes": "il trˈɛno pˈarte ˌalle sˈɛtːe:kʊaɾˈaːntaʧˈinkwe dˌalla staʦiˈone ʧentrˈale."
+  },
+  {
+   "version": "v2",
+   "language": "pt",
+   "text": "Olá, tudo bem? Hoje está um dia lindo.",
+   "phonemes": "olˈa, tˈudʊ bˈAŋ? ˈoʒj estˌa ũŋ ʤˈiæ lˈiŋdʊ."
+  },
+  {
+   "version": "v2",
+   "language": "pt",
+   "text": "Eu tenho 3 irmãos e (às vezes) brigamos.",
+   "phonemes": "eʊ tˌeɲʊ trˈez iɾəmˈɐ̃ʊ̃z i (aːz vˈezyz) brˌiɡˈɐ̃mʊs."
+  },
+  {
+   "version": "v2",
+   "language": "ru",
+   "text": "Привет, как дела?",
+   "phonemes": "prʲivʲˈet, kˈɑk dʲˈela?"
+  },
+  {
+   "version": "v2",
+   "language": "ru",
+   "text": "Щука плавала в реке; было 12 градусов.",
+   "phonemes": "ɕˈuka plˈɑvʌla v rʲikʲˈe; bˌylʌ dvʲɪnˈɑtʦʌtʲ ɡrˈɑdusʌf."
+  },
+  {
+   "version": "v2",
+   "language": "hi",
+   "text": "नमस्ते, आप कैसे हैं? मैं ठीक हूँ।",
+   "phonemes": "nəmˈʌsteː, ˌaːp kˈɛːseː hɛ̃? mɛ̃ ʈʰˈiːk hũ."
+  },
+  {
+   "version": "v2",
+   "language": "hi",
+   "text": "सड़क पर बहुत भीड़ थी। हम 67 लोग थे॥",
+   "phonemes": "sˈʌɽək pˈʌɾ bˈʌhʊt bʰˈiːɽ tʰi. hˌəm sˈʌɽsəʈʰ lˈoːɡ tʰeː."
+  },
+  {
+   "version": "v2",
+   "language": "hi",
+   "text": "पढ़ाई ज़रूरी है।",
+   "phonemes": "pəɽʰˈaːi zəɾˈuːɾi hɛː."
+  },
+  {
+   "version": "v2",
+   "language": "fr",
+   "text": "Bonjour, comment allez-vous aujourd'hui ?",
+   "phonemes": "bɔ̃ʒˈuʁ, kɔmˌɑ̃ alˈevuz oʒuʁdyˈi ?"
+  },
+  {
+   "version": "v2",
+   "language": "fr",
+   "text": "Il fait beau ; nous irons au parc (avec Marie).",
+   "phonemes": "il fˈɛ bˈo ; nuz iʁˈɔ̃z o pˈaʁk (avˌɛk maʁˈi)."
+  },
+  {
+   "version": "v2",
+   "language": "fr",
+   "text": "« C'est incroyable ! », s'exclama-t-il.",
+   "phonemes": "“ sɛt ɛ̃kʁwajˈabl ! ”, sɛksklamˈatˈil."
+  },
+  {
+   "version": "v2",
+   "language": "da",
+   "text": "Hej, hvordan har du det?",
+   "phonemes": "hˈ?ɑj, ʋʔʌdˈan hɑ du de?"
+  },
+  {
+   "version": "v2",
+   "language": "da",
+   "text": "Jeg bor i København (Danmark).",
+   "phonemes": "jɑj bˈʔoɐ i kœbənhˈɑwn (dˈanmɑɑk)."
+  },
+  {
+   "version": "v2",
+   "language": "fi",
+   "text": "Hyvää huomenta, mitä kuuluu?",
+   "phonemes": "hˈyvæː hˈuomenta, mˈitæ kˈuːluː?"
+  },
+  {
+   "version": "v2",
+   "language": "fi",
+   "text": "Minulla on 2 kissaa.",
+   "phonemes": "mˈinulla on kˈaksi kˈissaː."
+  },
+  {
+   "version": "v2",
+   "language": "nl",
+   "text": "Goedemorgen, hoe gaat het met je?",
+   "phonemes": "ɣˈudəmˌɔrɣən, hˈu ɣˈaːt hət mɛt jə?"
+  },
+  {
+   "version": "v2",
+   "language": "nl",
+   "text": "Het regent al 3 dagen.",
+   "phonemes": "hət rˈeːɣənt ˈɑl drˈi dˈaːɣən."
+  },
+  {
+   "version": "v2",
+   "language": "sv",
+   "text": "Hej, hur mår du idag?",
+   "phonemes": "hˈɛj, hˈʉr mˈoːr dʉ ˈɪdˌɑːɡ?"
+  },
+  {
+   "version": "v2",
+   "language": "sv",
+   "text": "Jag bor i Göteborg och älskar kaffe.",
+   "phonemes": "jɑːɡ bˈuːr iː jˈøːtəbˌɔrj ɔk ˈɛlskar kˈafə."
+  },
+  {
+   "version": "v2",
+   "language": "sw",
+   "text": "Habari za asubuhi? Nzuri sana.",
+   "phonemes": "habˈari za ˌasubˈuhi? nzˈuri sˈana."
+  },
+  {
+   "version": "v2",
+   "language": "sw",
+   "text": "Ninaishi Nairobi, Kenya.",
+   "phonemes": "nˌinaˈiʃi nˌairˈobi, kˈeɲa."
+  },
+  {
+   "version": "v2",
+   "language": "tr",
+   "text": "Merhaba, nasılsın?",
+   "phonemes": "mˈɛrhaba, nasɯlsˈɯn?"
+  },
+  {
+   "version": "v2",
+   "language": "tr",
+   "text": "Bugün hava çok güzel (gerçekten).",
+   "phonemes": "buɡˈøn havˈa ʧˈɔk ɟyzˈæl (ɟɛrʧɛktˈæn)."
+  },
+  {
+   "version": "v2",
+   "language": "ko",
+   "text": "안녕하세요, 잘 지내세요?",
+   "phonemes": "ˈɐnnjʌŋhˌɐsejˌo, tɕˈɐl tɕˈinɛsˌejo?"
+  },
+  {
+   "version": "v2",
+   "language": "ko",
+   "text": "오늘 날씨가 정말 좋네요.",
+   "phonemes": "ˈonɯlnˈɐlsiqˌɐ tɕˈʌŋmɐl tɕˈotnejˌo."
+  }
+ ]
+}
