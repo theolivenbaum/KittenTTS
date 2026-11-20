@@ -13,3 +13,4 @@ __pycache__/
 *.download
 *.wav
 .DS_Store
+.claude/

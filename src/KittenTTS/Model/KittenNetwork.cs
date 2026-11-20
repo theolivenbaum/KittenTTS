@@ -19,7 +19,7 @@ public sealed record ModelOutput(float[] Waveform, int[] Durations);
 /// </code>
 /// Thread-safe: weights are read-only and every call allocates its own activations.
 /// </summary>
-public sealed class KittenModel : IDisposable
+public sealed class KittenNetwork : IDisposable
 {
     private readonly TextEncoder _textEncoder;
     private readonly Albert _bert;
@@ -31,7 +31,7 @@ public sealed class KittenModel : IDisposable
     /// <c>F0</c>, <c>N</c>, <c>asr</c>, as float arrays in channels-last layout.</summary>
     public delegate void TraceCallback(string name, float[] data, int[] shape);
 
-    public KittenModel(ITensorSource weights, Architecture architecture)
+    public KittenNetwork(ITensorSource weights, Architecture architecture)
     {
         Architecture = architecture;
         if (weights is OnnxWeights onnx)

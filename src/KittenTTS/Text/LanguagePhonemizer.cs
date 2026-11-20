@@ -21,8 +21,9 @@ public sealed partial class LanguagePhonemizer
         ["ms"] = "ms", ["sw"] = "sw",
     };
 
-    // FOLD of phonemize_multi.py, in dict order: espeak symbols the 114-symbol vocab has no row for
-    private static readonly (string, string)[] FoldV1 =
+    /// <summary>FOLD of phonemize_multi.py (v1), in dict order: G2P symbols the 114-symbol vocab has no row for. The
+    /// English front end applies it too.</summary>
+    public static readonly IReadOnlyList<(string From, string To)> FoldV1 =
     [
         ("̪", ""), ("̩", ""), ("̍", ""), ("̯", ""), ("ɭ", "l"), ("ɫ", "l"),
         ("ɵ", "ø"), ("ε", "ɛ"), ("\x05", ""), ("\x06", ""), ("\x07", ""), ("\x08", ""),
@@ -43,7 +44,7 @@ public sealed partial class LanguagePhonemizer
     private static partial Regex HindiFlapTextRe();
 
     private readonly EspeakG2P _g2p;
-    private readonly (string, string)[] _fold;
+    private readonly (string From, string To)[] _fold;
 
     /// <param name="language">A language code (<c>de</c>, <c>fr</c>, <c>hi</c>, …; <c>ko</c> needs v2).</param>
     /// <param name="phonemizerVersion"><c>v1</c> (nano / pico) or <c>v2</c> (mini), the repository's <c>phonemizer</c>.</param>
@@ -60,11 +61,19 @@ public sealed partial class LanguagePhonemizer
         string? voice = language == "ko" ? "ko" : EspeakVoices.GetValueOrDefault(language);
         if (voice == null) throw new ArgumentException($"No espeak voice is mapped for language '{language}'.", nameof(language));
         _g2p = new EspeakG2P(voice);
-        _fold = v2 ? [.. FoldV1, .. FoldExtra] : FoldV1;
+        _fold = v2 ? [.. FoldV1, .. FoldExtra] : [.. FoldV1];
     }
 
     public string Language { get; }
     public string Version { get; }
+
+    /// <summary>Applies a fold table in order (as the Python loops over the dict).</summary>
+    public static string ApplyFolds(string ps, IEnumerable<(string From, string To)> table)
+    {
+        foreach (var (from, to) in table)
+            if (ps.Contains(from, StringComparison.Ordinal)) ps = ps.Replace(from, to, StringComparison.Ordinal);
+        return ps;
+    }
 
     /// <summary>The espeak voice in use.</summary>
     public string EspeakVoice => _g2p.Language;
@@ -79,7 +88,7 @@ public sealed partial class LanguagePhonemizer
             else if (Language == "ar") text = text.Replace("؟", "?");
         }
         string ps = EspeakBackend.PyStrip(_g2p.Phonemize(text));
-        foreach (var (from, to) in _fold) ps = ps.Replace(from, to);
+        ps = ApplyFolds(ps, _fold);
         if (v2 && Language == "hi")
         {
             // espeak writes ड़ / ढ़ as "r." / "r.h"; inside a word it is always the flap, at a word end only when the

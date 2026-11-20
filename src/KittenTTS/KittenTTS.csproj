@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- spaCy's English tokenizer rules and misaki's US lexicons (scripts/export_english_data.py) -->
+    <EmbeddedResource Include="Text\English\Data\*" LogicalName="KittenTTS.Text.English.Data.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Numerics.Tensors" Version="11.0.0" />
   </ItemGroup>
 

@@ -30,7 +30,7 @@ public sealed class ParityTests(ITestOutputHelper output)
         var manifest = Fixtures.LoadManifest();
         var repo = ModelRepository.Open(Fixtures.ModelDir!);
         using var weights = repo.OpenWeights(manifest.Language, WeightFormat.Float32);
-        using var model = new KittenModel(weights, repo.Architecture(manifest.Language));
+        using var model = new KittenNetwork(weights, repo.Architecture(manifest.Language));
         using var par = new Parallelism(0);
         foreach (var c in manifest.Cases)
         {
@@ -61,7 +61,7 @@ public sealed class ParityTests(ITestOutputHelper output)
         var repo = ModelRepository.Open(Fixtures.ModelDir!);
         var arch = repo.Architecture(manifest.Language);
         using var weights = repo.OpenWeights(manifest.Language, WeightFormat.Float32);
-        using var model = new KittenModel(weights, arch);
+        using var model = new KittenNetwork(weights, arch);
         using var par = new Parallelism(0);
         foreach (var c in manifest.Cases)
         {
@@ -87,7 +87,7 @@ public sealed class ParityTests(ITestOutputHelper output)
         }
         var repo = ModelRepository.Open(Fixtures.ModelDir!);
         using var weights = repo.OpenWeights(manifest.Language, WeightFormat.Int8);
-        using var model = new KittenModel(weights, repo.Architecture(manifest.Language));
+        using var model = new KittenNetwork(weights, repo.Architecture(manifest.Language));
         using var par = new Parallelism(0);
         foreach (var c in manifest.Cases)
         {
